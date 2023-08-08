@@ -1,114 +1,83 @@
-PREFIX ?= /usr/local
-BIN_DIR ?= $(PREFIX)/bin
+PREFIX  ?= /usr/local
 LIB_DIR ?= $(PREFIX)/lib
-SHARE_DIR ?= $(PREFIX)/share
-CONFIG_DIR ?= /etc
-SYSTEMD_DIR ?= /etc/systemd/system
+BIN_DIR ?= $(PREFIX)/bin
+CFG_DIR ?= /etc
 
-BUILD_LIB_DIR = build/lib
-BUILD_BIN_DIR = build/bin
-BUILD_SYSTEMD_DIR = build/systemd
-BUILD_CONFIG_DIR = build/config
+SPOTIFY_DEVICE_NAME ?= "raspotify@salon"
+SPOTIFY_ONEVENT_SCRIPT = "$(BIN_DIR)/powerup-onkyo.sh"
 
-ONKYO_HOST ?= 192.168.1.16
-ONKYO_PORT ?= 60128
-ONKYO_POWERUP_COMMAND ?= "$(BIN_DIR)/onkyo --host $(ONKYO_HOST) --port $(ONKYO_PORT) system-power=on"
+ONKYO_ENTRYPOINT=cd $(LIB_DIR)/onkyo; ./venv/bin/python3 -m eiscp.script
+ONKYO_HOST=192.168.1.16
+ONKYO_PORT=60128 
 
-SPOTIFYD_VERSION ?= 0.3.5
-SPOTIFYD_RELEASE ?= spotifyd-linux-armhf-full
-SPOTIFYD_DEVICE_NAME ?= "spotifyd@raspberrypi"
-
-SPOTIFYD_RELEASE_ARCHIVE = $(SPOTIFYD_RELEASE).tar.gz
-SPOTIFYD_RELEASE_ARCHIVE_URL = "https://github.com/Spotifyd/spotifyd/releases/download/v$(SPOTIFYD_VERSION)/$(SPOTIFYD_RELEASE_ARCHIVE)"
-
-
-.PHONY: all build prerequisites install uninstall clean spotifyd-build
+.PHONY: all build prerequisites install uninstall clean
+#.SILENT:
 
 all: build
 
-build: prerequisites spotifyd-build $(BUILD_LIB_DIR)/dsp/dsp $(BUILD_CONFIG_DIR)/asound.conf
+build: prerequisites build/asound.conf build/raspotify.conf build/ladspa_dsp.conf build/dsp/ladspa_dsp.so build/powerup-onkyo.sh
 
-install: $(BIN_DIR)/onkyo $(BIN_DIR)/dsp $(CONFIG_DIR)/asound.conf $(BIN_DIR)/spotifyd $(SYSTEMD_DIR)/spotifyd.service
-	sudo systemctl daemon-reload
-	sudo systemctl start spotifyd.service
-	sudo systemctl enable spotifyd.service
+prerequisites:
+	@mkdir -p build
 
-
-$(BIN_DIR)/onkyo: $(BUILD_LIB_DIR)/onkyo-eiscp/.venv/bin/onkyo
-	sudo install -m 755 $(BUILD_LIB_DIR)/onkyo-eiscp/.venv/bin/onkyo $(BIN_DIR)/onkyo
-
-$(BIN_DIR)/spotifyd: $(BUILD_BIN_DIR)/spotifyd
-	sudo install -m 755 $(BUILD_BIN_DIR)/spotifyd $(BIN_DIR)/spotifyd
-
-$(BIN_DIR)/dsp: $(BUILD_LIB_DIR)/dsp/dsp
-	sudo install -Dm 755 $(BUILD_LIB_DIR)/dsp/dsp $(BIN_DIR)/dsp
-	sudo install -Dm 644 $(BUILD_LIB_DIR)/dsp/dsp.1 $(SHARE_DIR)/man/man1/dsp.1
-
-$(SYSTEMD_DIR)/spotifyd.service: $(BUILD_SYSTEMD_DIR)/spotifyd.service
-	cp $(BUILD_SYSTEMD_DIR)/spotifyd.service $(SYSTEMD_DIR)/spotifyd.service
-
-$(CONFIG_DIR)/asound.conf: $(BUILD_CONFIG_DIR)/asound.conf
-	cp $(BUILD_CONFIG_DIR)/asound.conf $(CONFIG_DIR)/asound.conf
+install: $(LIB_DIR)/ladspa/ladspa_dsp.so $(CFG_DIR)/raspotify/conf $(BIN_DIR)/powerup-onkyo.sh $(LIB_DIR)/onkyo
+	systemctl start raspotify.service
+	systemctl enable raspotify.service
+	systemctl restart raspotify.service
 
 uninstall:
-	sudo systemctl stop spotifyd
-	sudo systemctl disable spotifyd
-	rm -f $(BIN_DIR)/onkyo
-	rm -f $(BIN_DIR)/spotifyd
-	rm -f $(BIN_DIR)/dsp
-	rm -f $(SHARE_DIR)/man/man1/dsp.1
-	rm -f $(CONFIG_DIR)/asound.conf
+	@cd build/dsp && sudo make uninstall
+	rm -rf $(CFG_DIR)/raspotify
+	rm -rf $(LIB_DIR)/onkyo
+	rm -f $(BIN_DIR)/powerup-onkyo.sh
+	systemctl stop raspotify.service
+	systemctl disable raspotify.service
 
 clean: uninstall
 	rm -rf build
 
-test:
-	aplay assets/universal-studios.wav
 
-prerequisites:
-	@mkdir -p $(BUILD_BIN_DIR)
-	@mkdir -p $(BUILD_CONFIG_DIR)
-	@mkdir -p $(BUILD_LIB_DIR)
-	@mkdir -p $(BUILD_SYSTEMD_DIR)
+build/asound.conf: templates/asound.conf
+	@cat templates/asound.conf > build/asound.conf
 
-spotifyd-build: $(BUILD_BIN_DIR)/spotifyd $(BUILD_CONFIG_DIR)/spotifyd.conf $(BUILD_SYSTEMD_DIR)/spotifyd.service
-	
+build/ladspa_dsp.conf: templates/ladspa_dsp.conf
+	@cat templates/ladspa_dsp.conf > build/ladspa_dsp.conf
 
-$(BUILD_LIB_DIR)/onkyo-eiscp/:
-	git clone https://github.com/miracle2k/onkyo-eiscp $(BUILD_LIB_DIR)/onkyo-eiscp/
-
-$(BUILD_LIB_DIR)/onkyo-eiscp/.venv/bin/onkyo: $(BUILD_LIB_DIR)/onkyo-eiscp/
-	cd $(BUILD_LIB_DIR)/onkyo-eiscp && python3 -m venv .venv && .venv/bin/easy_install onkyo-eiscp
+build/raspotify.conf: templates/raspotify.conf
+	@cat templates/raspotify.conf \
+	| sed 's|{{LIBRESPOT_NAME}}|$(SPOTIFY_DEVICE_NAME)|g' \
+	| sed 's|{{LIBRESPOT_ONEVENT}}|$(SPOTIFY_ONEVENT_SCRIPT)|g' \
+	> build/raspotify.conf
 
 
-$(BUILD_CONFIG_DIR)/asound.conf: $(BUILD_LIB_DIR)/dsp/obj/dsp 
-	@cat templates/alsa/asound.conf > $(BUILD_CONFIG_DIR)/asound.conf
+build/dsp/README.md: # check if repo exists
+	@git clone https://github.com/bmc0/dsp build/dsp
 
-$(BUILD_LIB_DIR)/dsp/README.md:
-	@git clone https://github.com/bmc0/dsp $(BUILD_LIB_DIR)/dsp/
-	
-$(BUILD_LIB_DIR)/dsp/config.mk: $(BUILD_LIB_DIR)/dsp/README.md
-	cd $(BUILD_LIB_DIR)/dsp && ./configure --prefix=/usr/local
+build/dsp/ladspa_dsp.so: build/dsp/README.md
+	@cd build/dsp && ./configure && make
 
-$(BUILD_LIB_DIR)/dsp/dsp: $(BUILD_LIB_DIR)/dsp/config.mk
-	cd $(BUILD_LIB_DIR)/dsp && make
+build/onkyo/README.rst:
+	@git clone https://github.com/miracle2k/onkyo-eiscp build/onkyo
+
+build/onkyo/venv: build/onkyo/README.rst
+	cd build/onkyo && python3 -m venv venv && ./venv/bin/pip install xmltodict netifaces docopt
+
+build/powerup-onkyo.sh: build/onkyo/venv
+	@cat templates/powerup-onkyo.sh \
+	| sed 's|{{ONKYO_ENTRYPOINT}}|$(ONKYO_ENTRYPOINT)|g' \
+	| sed 's|{{ONKYO_HOST}}|$(ONKYO_HOST)|g' \
+	| sed 's|{{ONKYO_PORT}}|$(ONKYO_PORT)|g' \
+	> build/powerup-onkyo.sh
 
 
-$(BUILD_BIN_DIR)/spotifyd:
-	@mkdir -p $(BUILD_BIN_DIR)
-	@wget -O /tmp/$(SPOTIFYD_RELEASE_ARCHIVE) $(SPOTIFYD_RELEASE_ARCHIVE_URL)
-	tar xvf /tmp/$(SPOTIFYD_RELEASE_ARCHIVE) -C $(BUILD_BIN_DIR) spotifyd
-	rm -f /tmp/$(SPOTIFYD_RELEASE_ARCHIVE)
+$(LIB_DIR)/ladspa/ladspa_dsp.so: build/dsp/ladspa_dsp.so
+	@cd build/dsp && sudo make install
 
-$(BUILD_CONFIG_DIR)/spotifyd.conf: $(BUILD_LIB_DIR)/onkyo-eiscp/.venv/bin/onkyo  
-	@mkdir -p $(BUILD_CONFIG_DIR)
-	@cat templates/spotifyd/spotifyd.conf \
-	| sed 's|{{SPOTIFYD_DEVICE_NAME}}|$(SPOTIFYD_DEVICE_NAME)|g' \
-	| sed 's|{{SPOTIFYD_ONEVENT_COMMAND}}|$(ONKYO_POWERUP_COMMAND)|g' \
-	> $(BUILD_CONFIG_DIR)/spotifyd.conf
+$(LIB_DIR)/onkyo: build/onkyo/venv
+	cp -r build/onkyo $(LIB_DIR)/onkyo
 
-$(BUILD_SYSTEMD_DIR)/spotifyd.service: $(BUILD_BIN_DIR)/spotifyd
-	@mkdir -p $(BUILD_SYSTEMD_DIR)
-	cat templates/spotifyd/spotifyd.service \
-	| sed 's|{{BIN_DIR}}|$(BIN_DIR)|g' \
-	> $(BUILD_SYSTEMD_DIR)/spotifyd.service
+$(BIN_DIR)/powerup-onkyo.sh: build/powerup-onkyo.sh
+	install -m 755 build/powerup-onkyo.sh $(BIN_DIR)/powerup-onkyo.sh
+
+$(CFG_DIR)/raspotify/conf: build/raspotify.conf
+	install -Dm 755 build/raspotify.conf $(CFG_DIR)/raspotify/conf
