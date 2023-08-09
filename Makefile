@@ -23,7 +23,8 @@ build: \
 	build/raspotify.conf \
 	build/dsp/ladspa_dsp.so \
 	build/ladspa_dsp.conf \
-	build/effects
+	build/effects \
+	build/alsaloop.service
 
 prerequisites:
 	@mkdir -p build
@@ -34,12 +35,14 @@ install: \
 	$(BIN_DIR)/powerup-onkyo.sh \
 	$(LIB_DIR)/onkyo \
 	$(CFG_DIR)/asound.conf \
-	$(CFG_DIR)/ladspa_dsp
+	$(CFG_DIR)/ladspa_dsp \
+	$(CFG_DIR)/systemd/system/alsaloop.service
 
-	sudo systemctl start raspotify.service
-	sudo systemctl enable raspotify.service
+	sudo systemctl daemon-reload
 	sudo systemctl restart raspotify.service
-	alsaloop -C iec958:CARD=USB,DEV=0 -P default --sync 3 --nblock --daemonize -t 12000
+	sudo systemctl enable raspotify.service
+	sudo systemctl restart alsaloop.service
+	sudo systemctl enable alsaloop.service
 
 uninstall:
 	@cd build/dsp && sudo make uninstall
@@ -50,7 +53,8 @@ uninstall:
 	rm -f $(BIN_DIR)/powerup-onkyo.sh
 	sudo systemctl stop raspotify.service
 	sudo systemctl disable raspotify.service
-	pkill alsaloop
+	sudo systemctl stop alsaloop.service
+	sudo systemctl disable alsaloop.service
 
 clean: uninstall
 	rm -rf build
@@ -96,6 +100,10 @@ build/onkyo/venv: build/onkyo/README.rst
 	cd build/onkyo && python3 -m venv venv && ./venv/bin/pip install xmltodict netifaces docopt
 
 
+build/alsaloop.service: templates/alsaloop.service
+	cat templates/alsaloop.service > build/alsaloop.service
+
+
 $(CFG_DIR)/ladspa_dsp: build/ladspa_dsp.conf build/effects
 	install -Dm 755 build/ladspa_dsp.conf $(CFG_DIR)/ladspa_dsp/config
 	install -Dm 755 build/effects $(CFG_DIR)/ladspa_dsp/effects
@@ -114,5 +122,9 @@ $(LIB_DIR)/onkyo: build/onkyo/venv
 
 $(CFG_DIR)/raspotify/conf: build/raspotify.conf
 	install -Dm 600 build/raspotify.conf $(CFG_DIR)/raspotify/conf
+
+$(CFG_DIR)/systemd/system/alsaloop.service: build/alsaloop.service
+	install -m 755 build/alsaloop.service $(CFG_DIR)/systemd/system/alsaloop.service
+
 
 .PHONY: all build prerequisites install uninstall clean

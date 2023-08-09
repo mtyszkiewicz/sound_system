@@ -1,0 +1,14 @@
+[Unit]
+Description=alsaloop
+After=sound.target
+
+[Service]
+ExecStart=/usr/bin/alsaloop -C iec958:CARD=USB,DEV=0 -P default --sync 3 --nblock -t 40000 
+Restart=on-failure
+CPUSchedulingPolicy=rr
+CPUSchedulingPriority=5
+# Pin service to CPU core 1
+CPUAffinity=1
+
+[Install]
+WantedBy=default.target
