@@ -14,3 +14,9 @@ The device itself has 4 sources:
  * Mic 2 - 2 channel input for Microphone #2
  * Line - 4 channel Jack input
  * IEC958 - 4 channel S/PDIF (optical) input
+
+## Snapcast dependencies
+```
+sudo apt-get install build-essential cmake
+sudo apt-get install libasound2-dev libpulse-dev libvorbisidec-dev libvorbis-dev libopus-dev libflac-dev libsoxr-dev alsa-utils libavahi-client-dev avahi-daemon libexpat1-dev
+```
