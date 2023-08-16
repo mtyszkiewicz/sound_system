@@ -5,7 +5,10 @@ After=sound.target
 [Service]
 ExecStart=/usr/bin/alsaloop -C iec958:CARD=USB,DEV=0 -P default --sync 2 --nblock -t 40000 
 Restart=on-failure
-RestartSec=2
+RestartSec=0
+RestartMaxDelaySec=4
+RestartSteps=5
+RuntimeMaxSec=600
 CPUSchedulingPolicy=rr
 CPUSchedulingPriority=5
 # Pin service to CPU core 1
