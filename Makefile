@@ -39,10 +39,10 @@ install: \
 	$(CFG_DIR)/systemd/system/alsaloop.service
 
 	sudo systemctl daemon-reload
-	sudo systemctl restart raspotify.service
-	sudo systemctl enable raspotify.service
 	sudo systemctl restart alsaloop.service
 	sudo systemctl enable alsaloop.service
+	sudo systemctl restart raspotify.service
+	sudo systemctl enable raspotify.service
 
 uninstall:
 	@cd build/dsp && sudo make uninstall
@@ -102,6 +102,10 @@ build/onkyo/venv: build/onkyo/README.rst
 
 build/alsaloop.service: templates/alsaloop.service
 	cat templates/alsaloop.service > build/alsaloop.service
+
+
+build/snapcast/README.md:
+	@git clone https://github.com/badaix/snapcast build/snapcast
 
 
 $(CFG_DIR)/ladspa_dsp: build/ladspa_dsp.conf build/effects
