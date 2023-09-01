@@ -1,17 +1,20 @@
 [Unit]
 Description=alsaloop
 After=sound.target
+StartLimitIntervalSec=100
+StartLimitBurst=5
 
 [Service]
-ExecStart=/usr/bin/alsaloop -C iec958:CARD=USB,DEV=0 -P default --sync 2 --nblock -t 40000 
-Restart=on-failure
-RestartSec=0
-RestartMaxDelaySec=4
-RestartSteps=5
-RuntimeMaxSec=600
+# Silent all alsaloop warnings, like overrun capture device, which spam the journalctl.
+# In case alsaloop crashes, wait 5 seconds before the next run.
+# More than 5 crashes within 100 seconds cause a service failure.
+ExecStart=/usr/bin/alsaloop -C iec958:CARD=USB,DEV=0 -P default --sync 2 --nblock -t 40000 1> /dev/null 2> /dev/null || (echo "Alsaloop got fucked up, stopping gracefully in 5s..." >&2 && sleep 5)
+Restart=always
+RuntimeMaxSec=1h
+RestartSec=10ms
 CPUSchedulingPolicy=rr
 CPUSchedulingPriority=5
-# Pin service to CPU core 1
+# Pin service to CPU core #1
 CPUAffinity=1
 
 [Install]
