@@ -1,6 +1,8 @@
 # Sound System
 My personal home sound system setup, automated with Makefile.
 
+![Architecture Diagram](./assets/architecture-diagram.png)
+
 Built using open-source software:
  * [Raspotify](https://github.com/dtcooper/raspotify) - Systemd wrapper around popular Spotify Connect client — [Librespot](https://github.com/librespot-org/librespot).
  * [dsp](https://github.com/bmc0/dsp) - [Digital singal processor](https://en.wikipedia.org/wiki/Digital_signal_processor) used for [room correction](https://en.wikipedia.org/wiki/Digital_room_correction)
