@@ -1,0 +1,16 @@
+[Unit]
+Description=A spotify playing daemon
+Documentation=https://github.com/Spotifyd/spotifyd
+Wants=sound.target
+After=sound.target
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+# max-cache-size = 3GB = 3 * 1024^3 = 3221225472 bytes
+ExecStart=/bin/sh -c '/usr/local/bin/spotifyd --autoplay --audio-format S24 --bitrate 320 --cache-path "/var/cache/spotifyd" --max-cache-size 3221225472 --device-name "spotifyd@salon" --device-type "avr" --initial-volume 65 --no-daemon | grep -v "truncated packet"'
+Restart=always
+RestartSec=12
+
+[Install]
+WantedBy=default.target
