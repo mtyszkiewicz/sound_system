@@ -1,0 +1,23 @@
+[spotifyd]
+enabled = true
+exec-path = "/usr/local/bin/spotifyd"
+autoplay = true
+audio-format = "S24"
+bitrate = 320
+cache-path = "/var/cache/spotifyd"
+max-cache-size = 3221225472 # [bytes] 3GB
+device-name = "spotifyd@salon"
+device-type = "avr"
+initial-volume = 65
+onkyo-wakeup = true
+
+[alsaloop]
+enabled = false
+capture-dev = "iec958:CARD=USB,DEV=0"
+playback-dev = "default"
+latency = 40000 # [usec] 40ms
+
+[ladspa_dsp]
+enabled = true
+profile = "salon"
+pcm-out = "dmix:CARD=USB,DEV=0"
