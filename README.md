@@ -1,5 +1,5 @@
 # 🔊 Sound System
-My personal home sound system setup, automated with Makefile.
+My personal home sound system setup.
 
 ![Architecture Diagram](./assets/architecture-diagram.png)
 
